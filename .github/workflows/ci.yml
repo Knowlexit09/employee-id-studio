@@ -40,4 +40,4 @@ jobs:
           DB_USERNAME: root
           DB_PASSWORD: root
           APP_ENV: testing
-      - run: npm ci && npm run build
+      - run: npm install --no-audit --no-fund && npm run build
