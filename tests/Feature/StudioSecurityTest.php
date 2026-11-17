@@ -180,7 +180,7 @@ final class StudioSecurityTest extends TestCase
         $this->assertSame(IMAGETYPE_JPEG, $info[2]);
         $this->assertLessThanOrEqual(1200, $info[0]);
         $this->actingAs($hr)->get("/studio/employees/{$employee->id}/photo")
-            ->assertOk()->assertHeader('Cache-Control', 'private, no-store');
+            ->assertOk()->assertHeader('Cache-Control', 'no-store, private');
     }
 
     public function test_cross_company_photo_update_is_denied_without_writing_file(): void
