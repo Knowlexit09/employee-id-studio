@@ -63,6 +63,73 @@ final class StudioCardController extends StudioController
         return redirect()->route('studio.cards.print',$issue->id)->with('status','ID issued. Print at actual size.');
     }
 
+    /**
+     * Bounded, indexed query: a single company can select at most 24 current cards.
+     * Already issued card versions and verification tokens are reused unchanged.
+     */
+    public function bulkIndex(Request $request)
+    {
+        $company = $this->viewAccess($request);
+        $issues = StudioCardIssue::query()
+            ->where('company_id', $company)
+            ->where('status', 'active')
+            ->whereHas('employee', fn ($q) => $q->where('status', 'active'))
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', today()->toDateString()))
+            ->with(['employee:id,employee_code,first_name,middle_name,last_name,suffix,status',
+                    'version:id,template_id,version'])
+            ->orderByDesc('issued_at')->orderByDesc('id')
+            ->paginate(24);
+        return view('studio.cards.bulk-index', compact('issues'));
+    }
+
+    public function bulkPrint(Request $request, CardFieldResolver $resolver)
+    {
+        $company = $this->viewAccess($request);
+        $validated = $request->validate([
+            'ids' => ['required','array','min:1','max:24'],
+            'ids.*' => ['required','integer','distinct','min:1'],
+        ]);
+        $ids = array_map('intval', $validated['ids']);
+        $records = StudioCardIssue::query()
+            ->where('company_id', $company)
+            ->whereIn('id', $ids)
+            ->where('status', 'active')
+            ->whereHas('employee', fn ($q) => $q->where('status', 'active'))
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', today()->toDateString()))
+            ->with(['employee', 'version'])
+            ->get()->keyBy('id');
+        if ($records->count() !== count($ids)) {
+            throw ValidationException::withMessages(['ids'=>'Selection includes an unavailable, expired or revoked card.']);
+        }
+
+        $templateIds = $records->pluck('version.template_id')->unique()->values()->all();
+        $templates = StudioTemplate::where('company_id', $company)
+            ->whereIn('id', $templateIds)->get()->keyBy('id');
+        $assetsByTemplate = StudioAsset::where('company_id', $company)
+            ->whereIn('template_id', $templateIds)->get()->groupBy('template_id');
+        $writer = new Writer(new ImageRenderer(new RendererStyle(256, 0), new SvgImageBackEnd()));
+        $entries = [];
+        foreach ($ids as $id) {
+            $record = $records->get($id);
+            $templateId = $record->version->template_id;
+            $template = $templates->get($templateId);
+            abort_unless($template, 404);
+            $fields = $resolver->forIssue($record);
+            $entries[] = [
+                'record' => $record,
+                'template' => $template,
+                'fields' => $fields,
+                'qrSvg' => $writer->writeString($fields['verification_url']),
+                'assets' => ($assetsByTemplate->get($templateId) ?? collect())->keyBy('id'),
+            ];
+        }
+
+        return response()->view('studio.cards.bulk-print', compact('entries'))
+            ->header('Cache-Control', 'private, no-store')
+            ->header('X-Content-Type-Options', 'nosniff')
+            ->header('Referrer-Policy', 'no-referrer');
+    }
+
     public function print(Request $request, int $issue, CardFieldResolver $resolver)
     {
         $company=$this->viewAccess($request);

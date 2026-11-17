@@ -20,7 +20,7 @@ ID Studio is a **separate deployment**. It uses Laravel 13 / PHP 8.3+, Livewire 
 - Public ID field binding allowlist does **not** include government numbers, emergency details, address, birthdays, medical information, or payroll details. Background/logo images may still *visually contain* sensitive text, so privacy review must address uploaded artwork before publication.
 - Public verification displays only a limited set of fields and must never be indexed; QR encodes a random opaque HTTPS URL, not actual employee identifiers.
 - Retention, deletion rights, labor-record preservation, privacy notice and access approvals require documented policy and legal review. Collect and print only what is necessary for the company's legitimate purpose.
-- Uploaded files are private but the application still needs image re-encoding/content safety scanning, malware controls, EXIF stripping and input exhaustion tests before deployment.
+- Employee photos are decoded and rewritten as private, bounded JPEGs (stripping source metadata); however background/logo assets are still uploaded without re-encoding. These assets, malware scanning, file lifecycle and parser exhaustion still require production review.
 - App encryption keys must be backed up separately and rotated carefully; losing keys makes encrypted employee fields unreadable. Use an enterprise secrets manager.
 
 ## What if / edge cases
@@ -57,7 +57,7 @@ ID Studio is a **separate deployment**. It uses Laravel 13 / PHP 8.3+, Livewire 
 5. Formal privacy notice, retention schedule, protection impact assessment, encryption-key rotation process and backup restore drills.
 6. Hosted HTTPS domain, secure-cookie config, trusted proxies, QR URLs with log-token redaction and rate limiting at edge.
 7. Company timezone and template approval workflow before live issue; an independent reviewer may be needed under company policy.
-8. Native batch PDF and high-resolution raster export, crop guides, print sheet layout, batch issue/reporting, accessibility testing.
+8. Native batch PDF and high-resolution raster export, crop guides, calibrated duplex sheet imposition, batch issue/reporting, accessibility testing. The current bulk print page offers browser-based front/back cutouts for up to 24 already-issued, active IDs only.
 9. Scanned ID is **not** sufficient authentication for attendance or payroll actions; any future attendance link must require an independent identity factor.
 
 ## Standards and references
@@ -66,3 +66,20 @@ ID Studio is a **separate deployment**. It uses Laravel 13 / PHP 8.3+, Livewire 
 - Laravel 13 Deployment: https://laravel.com/docs/13.x/deployment
 - Laravel 13 Encrypted Casts: https://laravel.com/docs/13.x/eloquent-mutators#encrypted-casting
 - NPC Advisory Opinion No. 2017-066 on company-ID contents: https://privacy.gov.ph/wp-content/uploads/2022/01/NPCAONo.2017-066.pdf
+
+## Performance budgets (design estimates, not benchmark results)
+
+Let **N** be the number of company card issues, **B** the number selected for batch print (max 24), **E** the number of visible template elements per card, and **A** the number of assets associated with selected templates.
+
+- The active issue list uses tenant/status filters with pagination and eager-loaded employees/versions. Index-assisted page retrieval is approximately **O(log N + page size)** on a suitable composite index; query plans should be verified with `EXPLAIN`. Avoid offset pagination on very large datasets in favor of cursor pagination.
+- Batch selection validates at most 24 IDs and retrieves card issues, template versions and assets in a bounded number of queries instead of one query per ID. Lookup and field rendering scale approximately **O(B · E + A)**, excluding QR/image encoding costs.
+- HTML render memory is **O(B · E + A)**, bounded by the 24-card request limit; each QR is generated at a fixed resolution. Template geometry normalization is linear in the number of elements **O(E)**.
+- Image decoding/re-encoding is **O(P)** time and space in pixel count **P**, bounded by the 2048×2048 input limit and the 1200-pixel maximum output side. Concurrency/load tests are required for production sizing.
+
+## Privacy and revocation edge cases
+
+- An empty protected-number edit means **retain existing**. Explicit clear toggles are validated and never mass-assigned; on create they are ignored.
+- New employee photos are rewritten to new private JPEG paths, not replacing prior bytes, so already-issued card snapshots keep their prior photo. Retention or erasure rules must reconcile printed card records and employee privacy obligations.
+- Batch selection excludes expired/revoked card issues and inactive employees, and rejects foreign-company selections atomically. It does not generate new tokens or mutate issuance records.
+- Historical single-card printing marks invalid cards visually, but QR verification remains the authoritative live status. Printed output should not be treated as proof of employment or as attendance authentication.
+- Duplex printing requires printer- and paper-specific alignment. This browser print preview **does not** guarantee back-side alignment.
