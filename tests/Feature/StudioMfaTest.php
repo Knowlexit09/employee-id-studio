@@ -54,7 +54,8 @@ final class StudioMfaTest extends TestCase
         $this->assertNotSame($secret, \DB::table('users')->where('id',$user->id)->value('studio_mfa_secret'));
         $this->assertSame($secret,$user->fresh()->studio_mfa_secret);
         $this->assertNotContains($recovery[0],$user->fresh()->studio_mfa_recovery_hashes);
-        $this->actingAs($user)->get('/studio')->assertOk();
+        // actingAs() retains the original in-memory user; reload encrypted MFA state.
+        $this->actingAs($user->fresh())->get('/studio')->assertOk();
         $this->post('/logout')->assertRedirect('/studio/login');
         $this->post('/login',['email'=>$user->email,'password'=>'password'])
             ->assertRedirect('/studio/mfa/challenge');
