@@ -9,4 +9,8 @@
 @elseif($element['binding']==='logo' && ($logo=$assets->get($page['logo_asset_id'] ?? 0)))<img alt="Company logo" src="{{ route('studio.assets.show',$logo) }}">
 @endif
 </div>
-@endforeach</div>
+@endforeach
+@if($record->status !== 'active' || $record->employee?->status !== 'active' || ($record->expires_at && $record->expires_at->copy()->endOfDay()->isPast()))
+<div class="card-invalid-overlay" aria-label="Invalid ID card">INVALID</div>
+@endif
+</div>
