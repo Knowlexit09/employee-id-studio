@@ -26,7 +26,11 @@ final class StudioEmployeeRequest extends FormRequest
             'emergency_name'=>['nullable','string','max:120'],
             'emergency_relationship'=>['nullable','string','max:80'],
             'emergency_phone'=>['nullable','string','max:25','regex:/^[0-9+ ()-]+$/D','required_with:emergency_name'],
-            'photo'=>['nullable','image','mimes:jpeg,png,webp','max:2048','dimensions:max_width=4096,max_height=4096'],
+            'clear_sss_number'=>['sometimes','boolean'],
+            'clear_philhealth_number'=>['sometimes','boolean'],
+            'clear_pagibig_mid'=>['sometimes','boolean'],
+            'clear_tin'=>['sometimes','boolean'],
+            'photo'=>['nullable','image','mimes:jpeg,png,webp','max:2048','dimensions:max_width=2048,max_height=2048'],
         ];
     }
 }
