@@ -57,6 +57,20 @@ final class StudioSecurityTest extends TestCase
             ->assertSee('100% / Actual size');
     }
 
+    public function test_template_editor_renders_precision_controls_for_hr(): void
+    {
+        $company = $this->company('Precision Company');
+        $hr = $this->staff($company);
+        $template = $this->template($company, $hr);
+        $this->actingAs($hr)->get("/studio/templates/{$template->id}/edit")
+            ->assertOk()
+            ->assertSee('id="id-canvas"', false)
+            ->assertSee('id="smart-guides"', false)
+            ->assertSee('id="toggle-preview"', false)
+            ->assertSee('id="layer-front"', false)
+            ->assertSee('data-align="hcenter"', false);
+    }
+
     public function test_guest_cannot_access_employee_registry(): void
     {
         $this->get('/studio/employees')->assertRedirect('/login');
