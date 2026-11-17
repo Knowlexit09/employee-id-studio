@@ -16,6 +16,13 @@ final class StudioBulkPrintTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Legacy feature tests isolate tenant rules; MFA end-to-end is tested separately.
+        $this->withoutMiddleware(\App\Http\Middleware\RequireStudioMfa::class);
+    }
+
     private function createIssuedCard(): array
     {
         $company = StudioCompany::create(['uuid'=>(string) Str::uuid(),'name'=>'Example Studio']);
@@ -37,9 +44,17 @@ final class StudioBulkPrintTest extends TestCase
             'name'=>'Company ID','width_mm'=>85.6,'height_mm'=>53.98,
             'revision'=>1,'draft_layout'=>TemplateLayout::initial(),
         ]);
-        $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/publish", [
+        $reviewer = User::factory()->create();
+        $reviewer->studio_company_id = $company->id;
+        $reviewer->studio_role = 'manager';
+        $reviewer->studio_active = true;
+        $reviewer->save();
+        $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/approval-request", [
             'revision'=>1,
         ])->assertOk();
+        $this->actingAs($reviewer)->postJson("/studio/templates/{$template->id}/publish", [
+            'revision'=>1,
+        'review_confirmed'=>'1',])->assertOk();
         $this->actingAs($hr)->post("/studio/employees/{$employee->id}/cards", [
             'template_id'=>$template->id,
         ])->assertRedirect();

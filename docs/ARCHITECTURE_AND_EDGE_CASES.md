@@ -83,3 +83,14 @@ Let **N** be the number of company card issues, **B** the number selected for ba
 - Batch selection excludes expired/revoked card issues and inactive employees, and rejects foreign-company selections atomically. It does not generate new tokens or mutate issuance records.
 - Historical single-card printing marks invalid cards visually, but QR verification remains the authoritative live status. Printed output should not be treated as proof of employment or as attendance authentication.
 - Duplex printing requires printer- and paper-specific alignment. This browser print preview **does not** guarantee back-side alignment.
+
+## Phase 4: maker-checker, role boundaries, and two-factor setup
+
+- TOTP authenticator enrollment is required on initial authenticated access for current eligible staff. The user must retain eight one-time codes; the application stores their SHA-256 hashes only.
+- Subsequent sign-ins require a TOTP or unused recovery code. Server-side last accepted 30-second counter prevents TOTP replay; one-minute rate limiting applies to challenge/confirmation.
+- Manager and super-admin roles can approve a pending design, while only HR and super-admin can edit the design. Self-approval is forbidden even for administrators. Check the exact revision under a database row lock to prevent approving a different draft than the one requested.
+- Rejected requests retain the reason for authorized reviewers; submitting an edited draft clears the prior status and requires a new review.
+- Newly issued ID cards can use only published versions. Existing issued cards retain immutable versions across subsequent edits or rejections.
+- Authenticated users can review company-scoped version history; no employee government numbers or QR tokens are included in the history screen.
+- MFA secrets and recovery codes never enter the audit log. Only action type and safe field names are recorded. The one-time recovery codes must not be emailed or logged.
+- **Operational follow-ups:** ensure authenticator recovery has identity verification and dual control; enforce HTTPS, MFA onboarding communication, secure cookie policies and encryption-key backups; consider WebAuthn for high-risk environments. Test rate-limit deployment with Redis/shared caches.

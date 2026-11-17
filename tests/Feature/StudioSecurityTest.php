@@ -16,6 +16,13 @@ final class StudioSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Legacy feature tests isolate tenant rules; MFA end-to-end is tested separately.
+        $this->withoutMiddleware(\App\Http\Middleware\RequireStudioMfa::class);
+    }
+
     private function company(string $name): StudioCompany
     {
         return StudioCompany::create(['uuid'=>(string)Str::uuid(),'name'=>$name]);
@@ -128,9 +135,13 @@ final class StudioSecurityTest extends TestCase
         $normalized = TemplateLayout::normalize($layout, 54.0, 85.6);
         $this->assertEquals($layout, $normalized);
         $this->assertLessThanOrEqual(54.01, $layout['front']['elements'][0]['x'] + $layout['front']['elements'][0]['w']);
-        $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/publish", [
+        $reviewer = $this->staff($company, 'manager');
+        $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/approval-request", [
             'revision' => 1,
-        ])->assertOk()->assertJsonPath('published_version', 1);
+        ])->assertOk();
+        $this->actingAs($reviewer)->postJson("/studio/templates/{$template->id}/publish", [
+            'revision' => 1,
+        'review_confirmed'=>'1',])->assertOk()->assertJsonPath('published_version', 1);
     }
 
     public function test_government_number_is_not_valid_id_template_field(): void
@@ -147,7 +158,9 @@ final class StudioSecurityTest extends TestCase
     {
         $company=$this->company('Co A');$hr=$this->staff($company);
         $employee=$this->employee($company);$template=$this->template($company,$hr);
-        $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1])->assertOk();
+        $reviewer=$this->staff($company,'manager');
+        $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/approval-request",['revision'=>1])->assertOk();
+        $this->actingAs($reviewer)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1 ,'review_confirmed'=>'1',])->assertOk();
         $this->actingAs($hr)->post("/studio/employees/{$employee->id}/cards",['template_id'=>$template->id])->assertRedirect();
         $issue=\App\Models\StudioCardIssue::firstOrFail();
         $token=$issue->token_encrypted;

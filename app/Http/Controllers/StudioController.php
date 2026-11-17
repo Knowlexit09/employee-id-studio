@@ -16,4 +16,9 @@ abstract class StudioController extends Controller
         abort_unless($request->user()?->canManageStudio() === true && $request->user()->studio_company_id, 403);
         return (int) $request->user()->studio_company_id;
     }
+    protected function approvalAccess(Request $request): int
+    {
+        abort_unless($request->user()?->canApproveStudioTemplate() === true && $request->user()->studio_company_id, 403);
+        return (int) $request->user()->studio_company_id;
+    }
 }

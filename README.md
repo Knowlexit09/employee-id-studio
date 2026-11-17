@@ -6,6 +6,20 @@ Standalone Laravel 13 employee ID designer and employee registry. **Portfolio/de
 
 Employee records with encrypted statutory IDs and emergency contacts, customizable front/back ID design, draggable/resizable text/image/QR, millimeter geometry, immutable template versions, card issuance/revocation, QR verification, audit records, and bounded batch printing of up to 24 existing valid IDs. The browser demo in `demo/` uses fictional data and shows an illustrative QR only.
 
+## Multi-factor authentication and approvals
+
+On first sign-in, all authorized staff must register a TOTP authenticator using the QR code or setup key and confirm a six-digit time-based code. The application displays **eight one-time recovery codes** once; users must store them offline in a password manager. Password-only sessions cannot access studio routes, including private files and print pages. Subsequent logins require a fresh authenticator or unused recovery code. TOTP time steps are tracked to prevent reuse, and both setup and challenge POSTs are rate-limited. PHP/Laravel encryption protects stored TOTP secrets; recovery codes are hashed.
+
+**Role boundaries:**
+- **HR:** create/edit employee records and designs, request template approval, issue and revoke ID cards.
+- **Manager:** view records, review a pending template, approve/publish or reject a draft; cannot edit employee personal data.
+- **Super administrator:** may design or approve, **but cannot approve their own submitted revision**. A second authorized account is required.
+- Unprovisioned/inactive accounts have no studio access.
+
+A template is not publishable until a designer submits the **current saved revision**. A different manager or administrator reviews and approves it. Changing the draft invalidates any pending approval; published versions remain immutable and accessible through **Version history**. Previously issued IDs retain their original version and QR. Account recovery when all recovery codes and the authenticator are lost requires a **documented, identity-verified, authorized administrator procedure**; there is no public self-service MFA bypass.
+
+Before live deployment: enforce HTTPS, set production session/cookie security settings, configure backups and encryption key recovery, test account recovery/lockout, review incident response and abuse protection, and consider phishing-resistant WebAuthn as a future improvement.
+
 ## Precision design tools
 
 The production template editor supports drag/resize, 0.5 mm grid snapping, visual alignment guides for card edges/centers and neighboring fields, six align-to-card actions, locked layers, and four layer ordering commands. For finer positioning, focus the selected field and use **arrow keys for 0.1 mm** or **Shift + arrow keys for 1 mm**. Choose **Preview design** to temporarily hide editing handles (preview uses fictional placeholders rather than actual private employee information). Coordinates, font settings and z-order are saved with the template draft and become immutable when published.

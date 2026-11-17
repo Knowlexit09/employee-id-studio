@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\StudioAuthController;
+use App\Http\Controllers\StudioMfaController;
+use App\Http\Middleware\RequireStudioMfa;
 use App\Http\Controllers\StudioDashboardController;
 use App\Http\Controllers\StudioEmployeeController;
 use App\Http\Controllers\StudioTemplateController;
@@ -17,6 +19,13 @@ Route::post('/logout', [StudioAuthController::class, 'logout'])->middleware('aut
 Route::get('/verify-id/{token}', [StudioCardController::class, 'verify'])->middleware('throttle:30,1')->name('studio.verify');
 
 Route::middleware('auth')->prefix('studio')->name('studio.')->group(function (): void {
+    Route::get('/mfa/setup', [StudioMfaController::class, 'setup'])->name('mfa.setup');
+    Route::post('/mfa/setup', [StudioMfaController::class, 'confirm'])->middleware('throttle:5,1')->name('mfa.confirm');
+    Route::get('/mfa/challenge', [StudioMfaController::class, 'challenge'])->name('mfa.challenge');
+    Route::post('/mfa/challenge', [StudioMfaController::class, 'verify'])->middleware('throttle:5,1')->name('mfa.verify');
+    Route::get('/mfa/recovery', [StudioMfaController::class, 'recovery'])->name('mfa.recovery');
+
+    Route::middleware(RequireStudioMfa::class)->group(function (): void {
     Route::get('/', StudioDashboardController::class)->name('dashboard');
     Route::get('/employees', [StudioEmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/create', [StudioEmployeeController::class, 'create'])->name('employees.create');
@@ -28,6 +37,11 @@ Route::middleware('auth')->prefix('studio')->name('studio.')->group(function ():
     Route::post('/templates', [StudioTemplateController::class, 'create'])->name('templates.create');
     Route::get('/templates/{template}/edit', [StudioTemplateController::class, 'edit'])->whereNumber('template')->name('templates.edit');
     Route::put('/templates/{template}/draft', [StudioTemplateController::class, 'save'])->whereNumber('template')->name('templates.save');
+    Route::post('/templates/{template}/approval-request', [StudioTemplateController::class, 'requestApproval'])->whereNumber('template')->name('templates.request-approval');
+    Route::get('/templates/{template}/review', [StudioTemplateController::class, 'review'])->whereNumber('template')->name('templates.review');
+    Route::post('/templates/{template}/reject', [StudioTemplateController::class, 'reject'])->whereNumber('template')->name('templates.reject');
+    Route::get('/templates/{template}/history', [StudioTemplateController::class, 'history'])->whereNumber('template')->name('templates.history');
+    Route::get('/templates/{template}/history/{version}', [StudioTemplateController::class, 'historyVersion'])->whereNumber('template')->whereNumber('version')->name('templates.history-version');
     Route::post('/templates/{template}/publish', [StudioTemplateController::class, 'publish'])->whereNumber('template')->name('templates.publish');
     Route::post('/templates/{template}/assets', [StudioTemplateController::class, 'uploadAsset'])->whereNumber('template')->middleware('throttle:15,1')->name('templates.assets');
     Route::post('/templates/{template}/archive', [StudioTemplateController::class, 'archive'])->whereNumber('template')->name('templates.archive');
@@ -40,4 +54,5 @@ Route::middleware('auth')->prefix('studio')->name('studio.')->group(function ():
     Route::get('/cards/{issue}/print', [StudioCardController::class, 'print'])->whereNumber('issue')->name('cards.print');
     Route::post('/cards/{issue}/revoke', [StudioCardController::class, 'revoke'])->whereNumber('issue')->name('cards.revoke');
     Route::get('/cards/{issue}/photo', [StudioCardController::class, 'issuePhoto'])->whereNumber('issue')->name('cards.photo');
+    });
 });
