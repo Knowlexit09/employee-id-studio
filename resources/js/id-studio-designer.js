@@ -1,4 +1,5 @@
 /* ID Studio canvas editor. No remote scripts, no eval, no user-authored HTML. */
+import {moveRect, resizeRect, alignRect, reorderLayers, findAlignmentGuides} from './id-studio-geometry.js';
 const root = document.getElementById('studio-designer');
 if (root) {
   const config = JSON.parse(document.getElementById('id-studio-config').textContent);
@@ -13,14 +14,13 @@ if (root) {
     company_name:'YOUR COMPANY', issue_date:'2026-11-16', expiry_date:'2028-11-16',
   };
   const canvas = $('id-canvas');
-  let side = 'front', selectedId = null, revision = config.revision, dirty = false, drag = null;
+  let side = 'front', selectedId = null, revision = config.revision, dirty = false, drag = null, previewMode = false;
   const scale = Math.min(620 / card.width, 355 / card.height, 7.2);
   const getElements = () => layout[side].elements;
   const current = () => getElements().find(e => e.id === selectedId);
   const assetUrl = (id, kind) => assets.find(a => a.id === id && a.kind === kind)?.url ?? null;
   const clamp = (v,min,max) => Math.min(max,Math.max(min,v));
   const round = n => Math.round(n*100)/100;
-  const snap = v => $('snap-grid').checked ? Math.round(v*2)/2 : round(v);
   const markDirty = () => {dirty = true; $('designer-status').textContent = 'Unsaved changes.';};
   const fontPx = e => `${e.fontSize * 25.4 / 72 * scale}px`;
   const allowedBindings = {
@@ -45,6 +45,9 @@ if (root) {
 
   function render() {
     canvas.replaceChildren();
+    canvas.classList.toggle('previewing', previewMode);
+    $('toggle-preview').textContent = previewMode ? 'Exit preview' : 'Preview design';
+    $('toggle-preview').setAttribute('aria-pressed', String(previewMode));
     canvas.style.width=`${card.width*scale}px`;
     canvas.style.height=`${card.height*scale}px`;
     const bg=assetUrl(layout[side].background_asset_id,'background');
@@ -67,6 +70,13 @@ if (root) {
       }
       canvas.append(node);
     }
+    const v = document.createElement('div');
+    v.className = 'alignment-guide alignment-guide-v';
+    v.setAttribute('aria-hidden', 'true');
+    const h = document.createElement('div');
+    h.className = 'alignment-guide alignment-guide-h';
+    h.setAttribute('aria-hidden', 'true');
+    canvas.append(v, h);
     renderLayers();renderPanel();renderAssets();
     root.querySelectorAll('[data-side]').forEach(button=>{
       const active=button.dataset.side===side;
@@ -87,6 +97,10 @@ if (root) {
       button.addEventListener('click',()=>{selectedId=e.id;render();});host.append(button);
     }
     for (const id of ['duplicate-element','delete-element','lock-element']) $(id).disabled=!current();
+    for (const id of ['layer-up','layer-down','layer-front','layer-back']) {
+      $(id).disabled = !current() || current().locked;
+    }
+    for (const button of root.querySelectorAll('[data-align]')) button.disabled = !current() || current().locked;
     $('lock-element').textContent=current()?.locked?'Unlock':'Lock';
   }
 
@@ -113,12 +127,24 @@ if (root) {
     }
   }
 
+  function showGuides(vertical = null, horizontal = null) {
+    const v = canvas.querySelector('.alignment-guide-v');
+    const h = canvas.querySelector('.alignment-guide-h');
+    if (!v || !h) return;
+    v.hidden = vertical === null;
+    h.hidden = horizontal === null;
+    if (vertical !== null) v.style.left = (vertical * scale)+'px';
+    if (horizontal !== null) h.style.top = (horizontal * scale)+'px';
+  }
+
   canvas.addEventListener('pointerdown',ev=>{
+    if (previewMode) return;
     const node=ev.target.closest('.studio-element');
     if(!node){selectedId=null;render();return;}
     const e=getElements().find(item=>item.id===node.dataset.id);
     if(!e)return;
     selectedId=e.id;
+    canvas.focus({preventScroll:true});
     const mode=ev.target.matches('[data-resize]')?'resize':'move';
     if(!e.locked){drag={id:e.id,mode,startX:ev.clientX,startY:ev.clientY,x:e.x,y:e.y,w:e.w,h:e.h};canvas.setPointerCapture(ev.pointerId);}
     render();
@@ -129,19 +155,55 @@ if (root) {
     if(!e)return;
     const dx=(ev.clientX-drag.startX)/scale,dy=(ev.clientY-drag.startY)/scale;
     if(drag.mode==='move'){
-      e.x=clamp(snap(drag.x+dx),0,card.width-e.w);
-      e.y=clamp(snap(drag.y+dy),0,card.height-e.h);
+      let next=moveRect(drag, dx, dy, card.width, card.height, $('snap-grid').checked ? 0.5 : 0);
+      if($('smart-guides').checked){
+        const targets=getElements().filter(item=>item.id!==e.id);
+        const aligned=findAlignmentGuides({...e,...next},targets,card.width,card.height);
+        next={x:aligned.x,y:aligned.y};
+        showGuides(aligned.vertical, aligned.horizontal);
+      } else showGuides();
+      e.x=next.x;
+      e.y=next.y;
     }else{
-      e.w=clamp(snap(drag.w+dx),2,card.width-e.x);
-      e.h=clamp(snap(drag.h+dy),2,card.height-e.y);
+      const next=resizeRect(drag, dx, dy, card.width, card.height, $('snap-grid').checked ? 0.5 : 0);
+      e.w=next.w;
+      e.h=next.h;
+      showGuides();
     }
     const node=Array.from(canvas.children).find(el=>el.dataset.id===e.id);
     if(node)applyGeometry(node,e);
     for(const key of ['x','y','w','h'])$('prop-'+key).value=e[key];
     markDirty();
   });
-  function finishDrag(){if(drag){drag=null;render();}}
+  function finishDrag(){showGuides();if(drag){drag=null;render();}}
   canvas.addEventListener('pointerup',finishDrag);canvas.addEventListener('pointercancel',finishDrag);
+
+  $('toggle-preview').addEventListener('click',()=>{previewMode=!previewMode;selectedId=previewMode?null:selectedId;showGuides();render();});
+  root.querySelectorAll('[data-align]').forEach(button=>button.addEventListener('click',()=>{
+    const e=current();if(!e || e.locked)return;
+    Object.assign(e, alignRect(e, button.dataset.align, card.width, card.height));
+    markDirty();render();
+  }));
+  for(const [buttonId,command] of [['layer-up','up'],['layer-down','down'],['layer-front','front'],['layer-back','back']]){
+    $(buttonId).addEventListener('click',()=>{
+      const e=current();if(!e || e.locked)return;
+      layout[side].elements=reorderLayers(getElements(),e.id,command);
+      markDirty();render();
+    });
+  }
+  root.addEventListener('keydown',ev=>{
+    if(previewMode || ev.altKey || ev.ctrlKey || ev.metaKey || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(ev.key))return;
+    if(!canvas.contains(ev.target) && !ev.target.closest('.layer-item'))return;
+    const e=current();if(!e || e.locked)return;
+    const step=ev.shiftKey?1:0.1;
+    const dx=ev.key==='ArrowLeft'?-step:ev.key==='ArrowRight'?step:0;
+    const dy=ev.key==='ArrowUp'?-step:ev.key==='ArrowDown'?step:0;
+    const next=moveRect(e,dx,dy,card.width,card.height,0);
+    ev.preventDefault();
+    if(next.x!==e.x || next.y!==e.y){
+      e.x=next.x;e.y=next.y;markDirty();render();
+    }
+  });
 
   root.querySelectorAll('[data-side]').forEach(b=>b.addEventListener('click',()=>{side=b.dataset.side;selectedId=null;render();}));
   root.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>{
