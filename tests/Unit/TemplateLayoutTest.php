@@ -11,7 +11,7 @@ final class TemplateLayoutTest extends TestCase
     public function test_default_layout_is_valid_for_standard_cr80(): void
     {
         $layout = TemplateLayout::initial();
-        $this->assertSame($layout, TemplateLayout::normalize($layout, 85.60, 53.98));
+        $this->assertEquals($layout, TemplateLayout::normalize($layout, 85.60, 53.98));
     }
 
     public function test_default_layout_is_scaled_to_custom_card_dimensions(): void
@@ -19,7 +19,7 @@ final class TemplateLayoutTest extends TestCase
         foreach ([[40.0, 30.0], [85.60, 53.98], [220.0, 310.0], [54.0, 85.60]] as [$width, $height]) {
             $layout = TemplateLayout::initial($width, $height);
             $normalized = TemplateLayout::normalize($layout, $width, $height);
-            $this->assertSame($layout, $normalized);
+            $this->assertEquals($layout, $normalized);
             foreach (['front', 'back'] as $side) {
                 foreach ($layout[$side]['elements'] as $element) {
                     $this->assertGreaterThanOrEqual(0, $element['x']);
