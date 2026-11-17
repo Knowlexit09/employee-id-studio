@@ -67,6 +67,18 @@ final class StudioCardController extends StudioController
      * Bounded, indexed query: a single company can select at most 24 current cards.
      * Already issued card versions and verification tokens are reused unchanged.
      */
+    /**
+     * PII-free A4 calibration gauge for estimating actual printed dimensions.
+     * Require studio membership even though there is no employee data on the sheet.
+     */
+    public function calibration(Request $request)
+    {
+        $this->viewAccess($request);
+        return response()->view('studio.cards.calibration')
+            ->header('Cache-Control', 'private, no-store')
+            ->header('X-Content-Type-Options', 'nosniff');
+    }
+
     public function bulkIndex(Request $request)
     {
         $company = $this->viewAccess($request);
