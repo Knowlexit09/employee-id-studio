@@ -262,9 +262,9 @@ if (root) {
     catch(err){$('designer-status').textContent=err.message+' If stale, reload this page.';}
   });
   $('publish-template').addEventListener('click',async()=>{
-    if(dirty){$('designer-status').textContent='Save the draft before publishing.';return;}
-    if(!confirm('Publish an immutable version of this template?'))return;
-    try{const data=await postJSON(config.publishUrl,'POST',{revision});$('designer-status').textContent=`Published version ${data.published_version}. Previous issues keep their own versions.`;}
+    if(dirty){$('designer-status').textContent='Save the draft before requesting approval.';return;}
+    if(!confirm('Submit this saved draft to a different manager or administrator for approval?'))return;
+    try{const data=await postJSON(config.publishUrl,'POST',{revision});$('designer-status').textContent=`Revision ${data.revision} submitted for independent approval. A manager or another administrator must approve it before use.`;}
     catch(err){$('designer-status').textContent=err.message;}
   });
   window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});

@@ -24,8 +24,8 @@
 </style>
 @endpush
 @section('content')
-<div class="flex flex-wrap justify-between items-end gap-3 mb-5"><div><a class="text-indigo-700 text-sm" href="{{ route('studio.templates.index') }}">← Templates</a><h1 class="text-2xl font-bold mt-2">{{ $template->name }}</h1><p class="text-sm text-slate-500">{{ $template->width_mm }} × {{ $template->height_mm }} mm · draft revision <span id="revision-label">{{ $template->revision }}</span> · published versions never mutate</p></div>
-<div class="flex gap-2"><button type="button" id="save-template" class="studio-btn studio-btn-primary">Save draft</button><button type="button" id="publish-template" class="studio-btn">Publish version</button><a class="studio-btn" href="{{ route('studio.cards.calibration') }}" target="_blank" rel="noopener noreferrer">Calibrate print</a></div></div>
+<div class="flex flex-wrap justify-between items-end gap-3 mb-5"><div><a class="text-indigo-700 text-sm" href="{{ route('studio.templates.index') }}">← Templates</a><h1 class="text-2xl font-bold mt-2">{{ $template->name }}</h1><p class="text-sm text-slate-500">{{ $template->width_mm }} × {{ $template->height_mm }} mm · draft revision <span id="revision-label">{{ $template->revision }}</span> · approval status: <strong>{{ ucfirst($template->approval_status) }}</strong> · published versions never mutate</p></div>
+<div class="flex gap-2"><a class="studio-btn" href="{{ route('studio.templates.history',$template) }}">Version history</a><button type="button" id="save-template" class="studio-btn studio-btn-primary">Save draft</button><button type="button" id="publish-template" class="studio-btn">Request approval</button><a class="studio-btn" href="{{ route('studio.cards.calibration') }}" target="_blank" rel="noopener noreferrer">Calibrate print</a></div></div>
 <div class="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_260px] items-start" id="studio-designer">
 <aside class="studio-panel space-y-3"><h2 class="font-bold text-slate-800">Add field</h2>
 <button type="button" data-add="text" class="studio-btn block w-full text-left">+ Text / dynamic field</button><button type="button" data-add="image" class="studio-btn block w-full text-left">+ Image / photo</button><button type="button" data-add="qr" class="studio-btn block w-full text-left">+ QR verification</button>
@@ -80,7 +80,7 @@
         'cardWidth' => (float) $template->width_mm,
         'cardHeight' => (float) $template->height_mm,
         'saveUrl' => route('studio.templates.save', $template),
-        'publishUrl' => route('studio.templates.publish', $template),
+        'publishUrl' => route('studio.templates.request-approval', $template),
         'uploadUrl' => route('studio.templates.assets', $template),
         'assets' => $assets->map(fn ($a) => [
             'id' => $a->id,
