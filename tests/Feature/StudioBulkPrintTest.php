@@ -60,7 +60,7 @@ final class StudioBulkPrintTest extends TestCase
         ])->assertOk()
           ->assertSee('Front / Back')
           ->assertSee('EMP-100')
-          ->assertHeader('Cache-Control','private, no-store');
+          ->assertHeader('Cache-Control','no-store, private');
         $this->assertSame($count, StudioCardIssue::count(), 'Bulk printing must not issue new QR tokens');
     }
 
