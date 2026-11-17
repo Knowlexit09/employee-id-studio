@@ -14,6 +14,12 @@
 .studio-element.locked{cursor:default}.studio-handle{position:absolute;right:0;bottom:0;width:12px;height:12px;background:#4f46e5;border:2px solid white;cursor:nwse-resize;z-index:10}
 .layer-item{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;padding:8px;border-radius:8px;font-size:12px}
 .layer-item.active{background:#eef2ff;color:#3730a3}.layer-item:hover{background:#f1f5f9}
+.alignment-guide{position:absolute;z-index:2001;pointer-events:none;background:#f43f5e;box-shadow:0 0 0 1px #fff8}
+.alignment-guide[hidden]{display:none!important}
+.alignment-guide-v{top:0;bottom:0;width:1px}
+.alignment-guide-h{left:0;right:0;height:1px}
+#id-canvas.previewing .studio-element{outline:none!important;cursor:default}
+#id-canvas.previewing .studio-handle{display:none}
 #id-canvas::after{content:'';position:absolute;inset:0;border:1px solid #d1d5db;pointer-events:none}
 </style>
 @endpush
@@ -25,12 +31,36 @@
 <button type="button" data-add="text" class="studio-btn block w-full text-left">+ Text / dynamic field</button><button type="button" data-add="image" class="studio-btn block w-full text-left">+ Image / photo</button><button type="button" data-add="qr" class="studio-btn block w-full text-left">+ QR verification</button>
 <hr><h3 class="font-bold text-sm">Layers <span id="layer-count" class="text-slate-400"></span></h3><div id="layers" class="space-y-1 max-h-64 overflow-y-auto"></div>
 <div class="border-t pt-3 flex flex-wrap gap-2"><button type="button" id="duplicate-element" class="studio-btn">Duplicate</button><button type="button" id="delete-element" class="studio-btn">Delete</button><button type="button" id="lock-element" class="studio-btn">Lock</button></div>
+<div class="border-t pt-3 space-y-2" role="group" aria-label="Layer order">
+  <h3 class="font-bold text-sm">Layer order</h3>
+  <div class="grid grid-cols-2 gap-2">
+    <button type="button" class="studio-btn" id="layer-front">To front</button>
+    <button type="button" class="studio-btn" id="layer-back">To back</button>
+    <button type="button" class="studio-btn" id="layer-up">Move up</button>
+    <button type="button" class="studio-btn" id="layer-down">Move down</button>
+  </div>
+</div>
+<div class="border-t pt-3 space-y-2" role="group" aria-label="Align selected field">
+  <h3 class="font-bold text-sm">Align to card</h3>
+  <div class="grid grid-cols-3 gap-1">
+    <button type="button" data-align="left" class="studio-btn" title="Align left edge">Left</button>
+    <button type="button" data-align="hcenter" class="studio-btn" title="Center horizontally">Center</button>
+    <button type="button" data-align="right" class="studio-btn" title="Align right edge">Right</button>
+    <button type="button" data-align="top" class="studio-btn" title="Align top edge">Top</button>
+    <button type="button" data-align="vcenter" class="studio-btn" title="Center vertically">Middle</button>
+    <button type="button" data-align="bottom" class="studio-btn" title="Align bottom edge">Bottom</button>
+  </div>
+</div>
 <div class="border-t pt-3 space-y-3"><h3 class="font-bold text-sm">Card assets</h3><label class="studio-label">Upload kind<select id="asset-kind" class="studio-input"><option value="background">Background</option><option value="logo">Logo</option></select></label><input id="asset-file" type="file" accept="image/jpeg,image/png,image/webp" class="block w-full text-xs"><button type="button" class="studio-btn w-full" id="upload-asset">Upload and apply</button>
 <label class="studio-label">Background (current side)<select id="background-id" class="studio-input"></select></label><label class="studio-label">Logo (current side)<select id="logo-id" class="studio-input"></select></label></div>
 </aside>
-<section class="studio-panel min-w-0"><div class="flex flex-wrap justify-between gap-3 items-center mb-4"><div class="flex bg-slate-100 rounded-lg p-1"><button type="button" class="studio-btn" data-side="front">Front</button><button type="button" class="studio-btn" data-side="back">Back</button></div><label class="text-xs flex items-center gap-2"><input type="checkbox" id="snap-grid" checked> Snap to 0.5 mm</label></div>
-<div class="overflow-auto rounded-xl bg-slate-200 p-6" style="min-height:430px"><div id="id-canvas" aria-label="ID design canvas"></div></div>
-<p class="text-xs text-slate-500 mt-3">Drag a field to move it. Drag its bottom-right handle to resize. Use numeric controls for exact millimeter measurements. Changes require Save draft, then Publish.</p>
+<section class="studio-panel min-w-0"><div class="flex flex-wrap justify-between gap-3 items-center mb-4"><div class="flex bg-slate-100 rounded-lg p-1"><button type="button" class="studio-btn" data-side="front">Front</button><button type="button" class="studio-btn" data-side="back">Back</button></div><div class="flex gap-3 flex-wrap items-center">
+<label class="text-xs flex items-center gap-2"><input type="checkbox" id="snap-grid" checked> Snap 0.5 mm</label>
+<label class="text-xs flex items-center gap-2"><input type="checkbox" id="smart-guides" checked> Smart guides</label>
+<button type="button" id="toggle-preview" class="studio-btn" aria-pressed="false">Preview design</button>
+</div></div>
+<div class="overflow-auto rounded-xl bg-slate-200 p-6" style="min-height:430px"><div id="id-canvas" tabindex="0" role="group" aria-label="ID design canvas. Select a field and use arrow keys to move it."></div></div>
+<p class="text-xs text-slate-500 mt-3">Drag a field to move or resize; smart guides help align edges and centers. Click a field and use arrow keys to move by 0.1 mm (Shift + arrow for 1 mm). Enter exact millimeters in Properties. Locked fields cannot be moved or reordered. Save draft before publishing.</p>
 <div role="status" aria-live="polite" id="designer-status" class="text-sm mt-4 text-indigo-700">Ready.</div></section>
 <aside class="studio-panel space-y-3"><h2 class="font-bold">Field properties</h2><p id="no-selection" class="text-xs text-slate-500">Select a field on the canvas.</p>
 <div id="property-panel" hidden class="space-y-3">
