@@ -32,7 +32,7 @@ final class StudioEmployeeController extends StudioController
     public function store(StudioEmployeeRequest $request, StudioAudit $audit)
     {
         $company = $this->writeAccess($request);
-        $data = $request->safe()->except('photo');
+        $data = $this->protectedData($request, false);
         $photo = $request->file('photo');
         $record = DB::transaction(function () use ($request, $data, $company, $photo, $audit) {
             $employee = new StudioEmployee();
@@ -56,7 +56,7 @@ final class StudioEmployeeController extends StudioController
     public function update(StudioEmployeeRequest $request, int $employee, StudioAudit $audit)
     {
         $company=$this->writeAccess($request);
-        $data=$request->safe()->except('photo');
+        $data=$this->protectedData($request, true);
         DB::transaction(function () use ($company,$request,$employee,$data,$audit) {
             $record=StudioEmployee::where('company_id',$company)->lockForUpdate()->findOrFail($employee);
             $record->fill($data);
@@ -69,6 +69,25 @@ final class StudioEmployeeController extends StudioController
             if ($fields) { $audit->record($request->user(),'employee.updated',$record,$fields); }
         });
         return back()->with('status','Employee updated.');
+    }
+
+    /**
+     * Blank protected fields never clear encrypted values on update.
+     * Explicit clear flags are separately validated and never mass-assigned.
+     */
+    private function protectedData(StudioEmployeeRequest $request, bool $updating): array
+    {
+        $fields = ['sss_number','philhealth_number','pagibig_mid','tin'];
+        $flags = array_map(fn (string $field): string => 'clear_'.$field, $fields);
+        $data = $request->safe()->except(array_merge(['photo'], $flags));
+        foreach ($fields as $field) {
+            if ($updating && $request->boolean('clear_'.$field)) {
+                $data[$field] = null;
+            } elseif (!isset($data[$field]) || trim((string) $data[$field]) === '') {
+                unset($data[$field]);
+            }
+        }
+        return $data;
     }
 
     public function photo(Request $request, int $employee)
