@@ -45,6 +45,18 @@ final class StudioSecurityTest extends TestCase
         ]);
     }
 
+    public function test_calibration_sheet_requires_authentication_and_contains_exact_measurements(): void
+    {
+        $this->get('/studio/print-calibration')->assertRedirect('/login');
+        $company = $this->company('Calibration Studio');
+        $viewer = $this->staff($company, 'manager');
+        $this->actingAs($viewer)->get('/studio/print-calibration')
+            ->assertOk()
+            ->assertSee('50 mm × 50 mm')
+            ->assertSee('100 mm')
+            ->assertSee('100% / Actual size');
+    }
+
     public function test_guest_cannot_access_employee_registry(): void
     {
         $this->get('/studio/employees')->assertRedirect('/login');
