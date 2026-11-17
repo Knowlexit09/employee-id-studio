@@ -34,6 +34,7 @@ Route::middleware('auth')->prefix('studio')->name('studio.')->group(function ():
     Route::get('/assets/{asset}', [StudioAssetController::class, 'show'])->whereNumber('asset')->name('assets.show');
     Route::get('/employees/{employee}/cards', [StudioCardController::class, 'form'])->whereNumber('employee')->name('cards.form');
     Route::post('/employees/{employee}/cards', [StudioCardController::class, 'issue'])->whereNumber('employee')->middleware('throttle:10,1')->name('cards.issue');
+    Route::get('/print-calibration', [StudioCardController::class, 'calibration'])->name('cards.calibration');
     Route::get('/cards/bulk', [StudioCardController::class, 'bulkIndex'])->name('cards.bulk.index');
     Route::post('/cards/bulk/print', [StudioCardController::class, 'bulkPrint'])->middleware('throttle:12,1')->name('cards.bulk.print');
     Route::get('/cards/{issue}/print', [StudioCardController::class, 'print'])->whereNumber('issue')->name('cards.print');
