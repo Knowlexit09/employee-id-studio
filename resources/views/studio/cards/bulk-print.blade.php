@@ -15,7 +15,7 @@
 @media print{body{background:white}.toolbar,.id-pair-label{display:none}.print-sheet{padding:0;gap:4mm}.id-pair{padding:0;border:0;gap:4mm}.card{border:0;break-inside:avoid}}
 </style></head><body>
 <div class="toolbar"><button type="button" onclick="window.print()">Print / Save as PDF</button>
-<a href="{{ route('studio.cards.bulk.index') }}">Back to selection</a>
+<a href="{{ route('studio.cards.bulk.index') }}">Back to selection</a><a href="{{ route('studio.cards.calibration') }}" target="_blank" rel="noopener noreferrer">Print size calibration</a>
 <span>{{ count($entries) }} selected cards · Set print scale to <b>100% (actual size)</b>; disable browser headers/footers and print backgrounds. Front and back are separate cutouts, not automatically duplex-aligned. Larger card sizes may require larger paper.</span></div>
 <div class="print-sheet">
 @foreach($entries as $entry)
