@@ -73,13 +73,22 @@
 <form id="archive-template-form" class="mt-8" method="POST" action="{{ route('studio.templates.archive',$template) }}" onsubmit="return confirm('Archive this template? Existing issued IDs remain unchanged.')">@csrf<button class="text-xs text-red-700 underline">Archive template</button></form>
 @endsection
 @push('scripts')
-<script id="id-studio-config" type="application/json">@json([
-    'layout'=>$template->draft_layout,'revision'=>$template->revision,
-    'cardWidth'=>(float)$template->width_mm,'cardHeight'=>(float)$template->height_mm,
-    'saveUrl'=>route('studio.templates.save',$template),
-    'publishUrl'=>route('studio.templates.publish',$template),
-    'uploadUrl'=>route('studio.templates.assets',$template),
-    'assets'=>$assets->map(fn($a)=>['id'=>$a->id,'kind'=>$a->kind,'url'=>route('studio.assets.show',$a)])->values(),
-])</script>
+@php
+    $designerConfig = [
+        'layout' => $template->draft_layout,
+        'revision' => $template->revision,
+        'cardWidth' => (float) $template->width_mm,
+        'cardHeight' => (float) $template->height_mm,
+        'saveUrl' => route('studio.templates.save', $template),
+        'publishUrl' => route('studio.templates.publish', $template),
+        'uploadUrl' => route('studio.templates.assets', $template),
+        'assets' => $assets->map(fn ($a) => [
+            'id' => $a->id,
+            'kind' => $a->kind,
+            'url' => route('studio.assets.show', $a),
+        ])->values()->all(),
+    ];
+@endphp
+<script id="id-studio-config" type="application/json">@json($designerConfig)</script>
 @vite('resources/js/id-studio-designer.js')
 @endpush
