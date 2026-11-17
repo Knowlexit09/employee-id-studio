@@ -48,6 +48,10 @@ if (root) {
     canvas.classList.toggle('previewing', previewMode);
     $('toggle-preview').textContent = previewMode ? 'Exit preview' : 'Preview design';
     $('toggle-preview').setAttribute('aria-pressed', String(previewMode));
+    for (const addButton of root.querySelectorAll('[data-add]')) addButton.disabled = previewMode;
+    $('upload-asset').disabled = previewMode;
+    $('background-id').disabled = previewMode;
+    $('logo-id').disabled = previewMode;
     canvas.style.width=`${card.width*scale}px`;
     canvas.style.height=`${card.height*scale}px`;
     const bg=assetUrl(layout[side].background_asset_id,'background');
@@ -96,11 +100,11 @@ if (root) {
       button.title=e.id;button.append(name);
       button.addEventListener('click',()=>{selectedId=e.id;render();canvas.focus({preventScroll:true});});host.append(button);
     }
-    for (const id of ['duplicate-element','delete-element','lock-element']) $(id).disabled=!current();
+    for (const id of ['duplicate-element','delete-element','lock-element']) $(id).disabled = previewMode || !current();
     for (const id of ['layer-up','layer-down','layer-front','layer-back']) {
-      $(id).disabled = !current() || current().locked;
+      $(id).disabled = previewMode || !current() || current().locked;
     }
-    for (const button of root.querySelectorAll('[data-align]')) button.disabled = !current() || current().locked;
+    for (const button of root.querySelectorAll('[data-align]')) button.disabled = previewMode || !current() || current().locked;
     $('lock-element').textContent=current()?.locked?'Unlock':'Lock';
   }
 
@@ -207,6 +211,7 @@ if (root) {
 
   root.querySelectorAll('[data-side]').forEach(b=>b.addEventListener('click',()=>{side=b.dataset.side;selectedId=null;render();}));
   root.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>{
+    if(previewMode)return;
     const type=b.dataset.add;
     const binding=type==='image'?'photo':type==='qr'?'verification_url':'custom';
     const width=type==='text'?Math.min(40,card.width-8):Math.min(20,card.width-8);
