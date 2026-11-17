@@ -12,9 +12,10 @@ final class TemplateLayout
         'photo', 'logo', 'verification_url', 'expiry_date',
     ];
 
-    public static function initial(): array
+    public static function initial(float $cardW = 85.60, float $cardH = 53.98): array
     {
-        return [
+        // All presets are defined in CR80 coordinates; adapt them for custom physical sizes.
+        $layout = [
             'front' => ['background_asset_id' => null, 'logo_asset_id' => null, 'elements' => [
                 ['id'=>'company', 'type'=>'text','binding'=>'company_name','text'=>'','x'=>6,'y'=>3,'w'=>73,'h'=>8,'fontSize'=>17,'fontFamily'=>'Arial','bold'=>true,'italic'=>false,'color'=>'#0f172a','align'=>'center','locked'=>false,'z'=>1],
                 ['id'=>'photo', 'type'=>'image','binding'=>'photo','text'=>'','x'=>6,'y'=>15,'w'=>23,'h'=>30,'fontSize'=>11,'fontFamily'=>'Arial','bold'=>false,'italic'=>false,'color'=>'#0f172a','align'=>'center','locked'=>false,'z'=>2],
@@ -27,6 +28,27 @@ final class TemplateLayout
                 ['id'=>'notice', 'type'=>'text','binding'=>'custom','text'=>'If found, please return this card to the issuing company.','x'=>8,'y'=>36,'w'=>69,'h'=>11,'fontSize'=>8,'fontFamily'=>'Arial','bold'=>false,'italic'=>false,'color'=>'#334155','align'=>'center','locked'=>false,'z'=>2],
             ]],
         ];
+        // Preserve the original exact CR80 template for existing records.
+        if (abs($cardW - 85.60) < 0.00001 && abs($cardH - 53.98) < 0.00001) {
+            return $layout;
+        }
+
+        $factorX = $cardW / 85.60;
+        $factorY = $cardH / 53.98;
+        $fontFactor = min($factorX, $factorY);
+        foreach (['front', 'back'] as $side) {
+            foreach ($layout[$side]['elements'] as &$element) {
+                foreach (['x', 'w'] as $key) {
+                    $element[$key] = round($element[$key] * $factorX, 2);
+                }
+                foreach (['y', 'h'] as $key) {
+                    $element[$key] = round($element[$key] * $factorY, 2);
+                }
+                $element['fontSize'] = round(min(42, max(5, $element['fontSize'] * $fontFactor)), 1);
+            }
+            unset($element);
+        }
+        return $layout;
     }
 
     public static function normalize(mixed $value, float $cardW, float $cardH): array
