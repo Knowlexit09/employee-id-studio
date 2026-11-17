@@ -83,6 +83,28 @@ final class StudioSecurityTest extends TestCase
         ])->assertStatus(409);
     }
 
+    public function test_employee_template_creation_scales_custom_card_layout(): void
+    {
+        $company = $this->company('Co A');
+        $hr = $this->staff($company);
+
+        $response = $this->actingAs($hr)->post('/studio/templates', [
+            'name' => 'Custom portrait',
+            'width_mm' => 54.0,
+            'height_mm' => 85.6,
+        ]);
+        $template = StudioTemplate::where('company_id', $company->id)->firstOrFail();
+        $response->assertRedirect("/studio/templates/{$template->id}/edit");
+
+        $layout = $template->draft_layout;
+        $normalized = TemplateLayout::normalize($layout, 54.0, 85.6);
+        $this->assertEquals($layout, $normalized);
+        $this->assertLessThanOrEqual(54.01, $layout['front']['elements'][0]['x'] + $layout['front']['elements'][0]['w']);
+        $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/publish", [
+            'revision' => 1,
+        ])->assertOk()->assertJsonPath('published_version', 1);
+    }
+
     public function test_government_number_is_not_valid_id_template_field(): void
     {
         $company=$this->company('Co A');$hr=$this->staff($company);
