@@ -128,6 +128,8 @@ final class StudioSecurityTest extends TestCase
         $this->get("/verify-id/{$token}")->assertOk()->assertSee('VALID ID');
         $this->actingAs($hr)->post("/studio/cards/{$issue->id}/revoke",['reason'=>'Lost card'])->assertRedirect();
         $this->get("/verify-id/{$token}")->assertOk()->assertSee('INVALID / REVOKED ID');
+        $this->actingAs($hr)->get("/studio/cards/{$issue->id}/print")
+            ->assertOk()->assertSee('card-invalid-overlay');
     }
     public function test_statutory_numbers_are_masked_and_not_cleared_by_blank_update(): void
     {
