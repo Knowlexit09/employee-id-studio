@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\StudioAuthController;
+use App\Http\Controllers\StudioMfaController;
+use App\Http\Middleware\RequireStudioMfa;
 use App\Http\Controllers\StudioDashboardController;
 use App\Http\Controllers\StudioEmployeeController;
 use App\Http\Controllers\StudioTemplateController;
@@ -17,6 +19,13 @@ Route::post('/logout', [StudioAuthController::class, 'logout'])->middleware('aut
 Route::get('/verify-id/{token}', [StudioCardController::class, 'verify'])->middleware('throttle:30,1')->name('studio.verify');
 
 Route::middleware('auth')->prefix('studio')->name('studio.')->group(function (): void {
+    Route::get('/mfa/setup', [StudioMfaController::class, 'setup'])->name('mfa.setup');
+    Route::post('/mfa/setup', [StudioMfaController::class, 'confirm'])->middleware('throttle:5,1')->name('mfa.confirm');
+    Route::get('/mfa/challenge', [StudioMfaController::class, 'challenge'])->name('mfa.challenge');
+    Route::post('/mfa/challenge', [StudioMfaController::class, 'verify'])->middleware('throttle:5,1')->name('mfa.verify');
+    Route::get('/mfa/recovery', [StudioMfaController::class, 'recovery'])->name('mfa.recovery');
+
+    Route::middleware(RequireStudioMfa::class)->group(function (): void {
     Route::get('/', StudioDashboardController::class)->name('dashboard');
     Route::get('/employees', [StudioEmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/create', [StudioEmployeeController::class, 'create'])->name('employees.create');
@@ -40,4 +49,5 @@ Route::middleware('auth')->prefix('studio')->name('studio.')->group(function ():
     Route::get('/cards/{issue}/print', [StudioCardController::class, 'print'])->whereNumber('issue')->name('cards.print');
     Route::post('/cards/{issue}/revoke', [StudioCardController::class, 'revoke'])->whereNumber('issue')->name('cards.revoke');
     Route::get('/cards/{issue}/photo', [StudioCardController::class, 'issuePhoto'])->whereNumber('issue')->name('cards.photo');
+    });
 });

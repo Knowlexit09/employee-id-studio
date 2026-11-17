@@ -17,7 +17,9 @@ final class StudioAuthController extends Controller
                 Auth::logout(); $request->session()->invalidate();
                 return back()->withErrors(['email'=>'Your account has no company.']);
             }
-            return redirect()->intended(route('studio.dashboard'));
+            $request->session()->forget(['studio_mfa_verified_user_id','studio_mfa_pending_secret','studio_mfa_recovery_codes']);
+            return redirect()->route($request->user()->studio_mfa_enabled_at
+                ? 'studio.mfa.challenge' : 'studio.mfa.setup');
         }
         return back()->withErrors(['email'=>'Invalid account credentials.'])->onlyInput('email');
     }
