@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StudioEmployeeRequest;
 use App\Models\StudioEmployee;
 use App\Services\StudioAudit;
+use App\Services\StudioPhotoProcessor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -29,21 +30,26 @@ final class StudioEmployeeController extends StudioController
         return view('studio.employees.form', ['employee'=>null]);
     }
 
-    public function store(StudioEmployeeRequest $request, StudioAudit $audit)
+    public function store(StudioEmployeeRequest $request, StudioAudit $audit, StudioPhotoProcessor $photos)
     {
         $company = $this->writeAccess($request);
         $data = $this->protectedData($request, false);
-        $photo = $request->file('photo');
-        $record = DB::transaction(function () use ($request, $data, $company, $photo, $audit) {
+        $photoPath = $request->hasFile('photo') ? $photos->store($request->file('photo'), $company) : null;
+        try {
+            $record = DB::transaction(function () use ($request, $data, $company, $photoPath, $audit) {
             $employee = new StudioEmployee();
             $employee->company_id = $company;
             $employee->uuid = (string) Str::uuid();
             $employee->fill($data);
-            if ($photo) { $employee->photo_path = $photo->store("studio/{$company}/employee-photos",'local'); }
+            if ($photoPath) { $employee->photo_path = $photoPath; }
             $employee->save();
             $audit->record($request->user(), 'employee.created', $employee, array_keys($data));
             return $employee;
-        });
+            });
+        } catch (\Throwable $exception) {
+            if ($photoPath) { Storage::disk('local')->delete($photoPath); }
+            throw $exception;
+        }
         return redirect()->route('studio.employees.edit', $record->id)->with('status','Employee created.');
     }
 
@@ -53,21 +59,31 @@ final class StudioEmployeeController extends StudioController
         return view('studio.employees.form', ['employee'=>StudioEmployee::where('company_id',$company)->findOrFail($employee)]);
     }
 
-    public function update(StudioEmployeeRequest $request, int $employee, StudioAudit $audit)
+    public function update(StudioEmployeeRequest $request, int $employee, StudioAudit $audit, StudioPhotoProcessor $photos)
     {
         $company=$this->writeAccess($request);
         $data=$this->protectedData($request, true);
-        DB::transaction(function () use ($company,$request,$employee,$data,$audit) {
+        // Check company ownership before writing uploaded photo bytes.
+        StudioEmployee::where('company_id',$company)->findOrFail($employee);
+        $photoPath = $request->hasFile('photo') ? $photos->store($request->file('photo'), $company) : null;
+        try {
+            DB::transaction(function () use ($company,$request,$employee,$data,$photoPath,$audit) {
             $record=StudioEmployee::where('company_id',$company)->lockForUpdate()->findOrFail($employee);
             $record->fill($data);
-            if ($request->hasFile('photo')) {
-                // Previous paths remain retained because issued ID snapshots can reference them.
-                $record->photo_path=$request->file('photo')->store("studio/{$company}/employee-photos",'local');
+            if ($photoPath) {
+                // Keep old photos because historical ID snapshots can still reference them.
+                $record->photo_path=$photoPath;
             }
             $fields=array_keys($record->getDirty());
-            $record->save();
-            if ($fields) { $audit->record($request->user(),'employee.updated',$record,$fields); }
-        });
+            if ($fields) {
+                $record->save();
+                $audit->record($request->user(),'employee.updated',$record,$fields);
+            }
+            });
+        } catch (\Throwable $exception) {
+            if ($photoPath) { Storage::disk('local')->delete($photoPath); }
+            throw $exception;
+        }
         return back()->with('status','Employee updated.');
     }
 
@@ -95,6 +111,6 @@ final class StudioEmployeeController extends StudioController
         $company=$this->viewAccess($request);
         $record=StudioEmployee::where('company_id',$company)->findOrFail($employee);
         abort_unless($record->photo_path && Storage::disk('local')->exists($record->photo_path),404);
-        return Storage::disk('local')->response($record->photo_path,null,['Cache-Control'=>'private, max-age=120','X-Content-Type-Options'=>'nosniff']);
+        return Storage::disk('local')->response($record->photo_path,null,['Cache-Control'=>'private, no-store','X-Content-Type-Options'=>'nosniff','Content-Security-Policy'=>"default-src 'none'; sandbox"]);
     }
 }
