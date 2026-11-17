@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Services\TemplateLayout;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 final class StudioSecurityTest extends TestCase
@@ -127,4 +129,73 @@ final class StudioSecurityTest extends TestCase
         $this->actingAs($hr)->post("/studio/cards/{$issue->id}/revoke",['reason'=>'Lost card'])->assertRedirect();
         $this->get("/verify-id/{$token}")->assertOk()->assertSee('INVALID / REVOKED ID');
     }
+    public function test_statutory_numbers_are_masked_and_not_cleared_by_blank_update(): void
+    {
+        $company = $this->company('Private Employer');
+        $hr = $this->staff($company);
+        $employee = $this->employee($company);
+        $employee->sss_number = '12-3456789-0';
+        $employee->tin = '123-456-789';
+        $employee->save();
+
+        $this->actingAs($hr)->get("/studio/employees/{$employee->id}/edit")
+            ->assertOk()->assertDontSee('12-3456789-0')->assertDontSee('123-456-789')
+            ->assertSee('Saved securely');
+
+        $form = [
+            'employee_code' => 'EMP-1', 'first_name' => 'Jane',
+            'last_name' => 'Example', 'status' => 'active', 'job_title' => 'Accountant',
+            'sss_number' => '', 'tin' => '',
+        ];
+        $this->actingAs($hr)->put("/studio/employees/{$employee->id}", $form)->assertRedirect();
+        $employee->refresh();
+        $this->assertSame('12-3456789-0', $employee->sss_number);
+        $this->assertSame('123-456-789', $employee->tin);
+        $this->assertSame('Accountant', $employee->job_title);
+
+        $this->actingAs($hr)->put("/studio/employees/{$employee->id}", [
+            ...$form, 'clear_sss_number' => '1',
+        ])->assertRedirect();
+        $employee->refresh();
+        $this->assertNull($employee->sss_number);
+        $this->assertSame('123-456-789', $employee->tin);
+    }
+
+    public function test_employee_photo_is_converted_to_private_jpeg(): void
+    {
+        Storage::fake('local');
+        $company = $this->company('Photo Company');
+        $hr = $this->staff($company);
+        $this->actingAs($hr)->post('/studio/employees', [
+            'employee_code'=>'EMP-2', 'first_name'=>'Mia',
+            'last_name'=>'Example', 'status'=>'active',
+            'photo'=>UploadedFile::fake()->image('source.png', 1600, 800),
+        ])->assertRedirect();
+
+        $employee = StudioEmployee::where('employee_code', 'EMP-2')->firstOrFail();
+        $this->assertStringEndsWith('.jpg', $employee->photo_path);
+        Storage::disk('local')->assertExists($employee->photo_path);
+        $bytes = Storage::disk('local')->get($employee->photo_path);
+        $info = getimagesizefromstring($bytes);
+        $this->assertSame(IMAGETYPE_JPEG, $info[2]);
+        $this->assertLessThanOrEqual(1200, $info[0]);
+        $this->actingAs($hr)->get("/studio/employees/{$employee->id}/photo")
+            ->assertOk()->assertHeader('Cache-Control', 'private, no-store');
+    }
+
+    public function test_cross_company_photo_update_is_denied_without_writing_file(): void
+    {
+        Storage::fake('local');
+        $companyA = $this->company('Owner');
+        $companyB = $this->company('Other');
+        $employee = $this->employee($companyA);
+        $otherHr = $this->staff($companyB);
+        $this->actingAs($otherHr)->put("/studio/employees/{$employee->id}", [
+            'employee_code'=>'EMP-1', 'first_name'=>'Jane',
+            'last_name'=>'Example', 'status'=>'active',
+            'photo'=>UploadedFile::fake()->image('new.png', 200, 200),
+        ])->assertNotFound();
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
 }
