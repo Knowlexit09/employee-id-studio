@@ -6,6 +6,22 @@ Standalone Laravel 13 employee ID designer and employee registry. **Portfolio/de
 
 Employee records with encrypted statutory IDs and emergency contacts, customizable front/back ID design, draggable/resizable text/image/QR, millimeter geometry, immutable template versions, card issuance/revocation, QR verification, audit records, and bounded batch printing of up to 24 existing valid IDs. The browser demo in `demo/` uses fictional data and shows an illustrative QR only.
 
+## Precision design tools
+
+The production template editor supports drag/resize, 0.5 mm grid snapping, visual alignment guides for card edges/centers and neighboring fields, six align-to-card actions, locked layers, and four layer ordering commands. For finer positioning, focus the selected field and use **arrow keys for 0.1 mm** or **Shift + arrow keys for 1 mm**. Choose **Preview design** to temporarily hide editing handles (preview uses fictional placeholders rather than actual private employee information). Coordinates, font settings and z-order are saved with the template draft and become immutable when published.
+
+From single or bulk print views, open **Print size calibration** to print an A4 gauge containing a **50 × 50 mm square** and a **100 mm bar**. Compare physical measurements with a ruler at 100% scale before printing cards. It is a manual calibration aid, **not** automatic duplex alignment or printer-driver control.
+
+## Designer regression tests
+
+```bash
+npm install
+npm run test:designer
+npm run build
+```
+
+The Node tests cover movement bounds, alignments, layer ordering, and smart guides without requiring a browser. Laravel feature tests cover authorization and access to the printable gauge. Browser pointer/keyboard accessibility and printer alignment still require manual and end-to-end verification.
+
 ## Local installation
 
 Requirements: PHP 8.3+, Composer 2, Node.js 22+, npm and PDO SQLite/MySQL, mbstring, XML, fileinfo and **GD** PHP extensions.

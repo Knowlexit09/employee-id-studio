@@ -40,4 +40,5 @@ jobs:
           DB_USERNAME: root
           DB_PASSWORD: root
           APP_ENV: testing
-      - run: npm install --no-audit --no-fund && npm run build
+      - run: php artisan view:cache && find storage/framework/views -name '*.php' -print0 | xargs -0 -r -n1 php -l >/dev/null
+      - run: npm install --no-audit --no-fund && npm run test:designer && npm run build

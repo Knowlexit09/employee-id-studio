@@ -45,6 +45,32 @@ final class StudioSecurityTest extends TestCase
         ]);
     }
 
+    public function test_calibration_sheet_requires_authentication_and_contains_exact_measurements(): void
+    {
+        $this->get('/studio/print-calibration')->assertRedirect('/login');
+        $company = $this->company('Calibration Studio');
+        $viewer = $this->staff($company, 'manager');
+        $this->actingAs($viewer)->get('/studio/print-calibration')
+            ->assertOk()
+            ->assertSee('50 mm × 50 mm')
+            ->assertSee('100 mm')
+            ->assertSee('100% / Actual size');
+    }
+
+    public function test_template_editor_renders_precision_controls_for_hr(): void
+    {
+        $company = $this->company('Precision Company');
+        $hr = $this->staff($company);
+        $template = $this->template($company, $hr);
+        $this->actingAs($hr)->get("/studio/templates/{$template->id}/edit")
+            ->assertOk()
+            ->assertSee('id="id-canvas"', false)
+            ->assertSee('id="smart-guides"', false)
+            ->assertSee('id="toggle-preview"', false)
+            ->assertSee('id="layer-front"', false)
+            ->assertSee('data-align="hcenter"', false);
+    }
+
     public function test_guest_cannot_access_employee_registry(): void
     {
         $this->get('/studio/employees')->assertRedirect('/login');

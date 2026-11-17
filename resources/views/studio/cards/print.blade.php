@@ -12,7 +12,7 @@
 @page{size:A4;margin:0}
 @media print{body{background:white}.toolbar{display:none}.sheet{justify-content:flex-start;align-items:flex-start;padding:10mm;gap:8mm}.card{border:0;break-inside:avoid}}
 </style></head><body>
-<div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button><a href="{{ route('studio.cards.form',$record->employee_id) }}">Back to employee</a><span>Set print scale to <b>100% / actual size</b>, disable browser headers/footers and print backgrounds. {{ $record->status === 'active' ? '' : 'REVOKED: reprinting for historical reference only.' }}</span></div>
+<div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button><a href="{{ route('studio.cards.form',$record->employee_id) }}">Back to employee</a><a href="{{ route('studio.cards.calibration') }}" target="_blank" rel="noopener noreferrer">Print size calibration</a><span>Set print scale to <b>100% / actual size</b>, disable browser headers/footers and print backgrounds. {{ $record->status === 'active' ? '' : 'REVOKED: reprinting for historical reference only.' }}</span></div>
 <div class="sheet">
 @foreach(['front','back'] as $side)
 @include('studio.cards._card', ['record'=>$record, 'assets'=>$assets, 'fields'=>$fields, 'qrSvg'=>$qrSvg, 'side'=>$side])
