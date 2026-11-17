@@ -94,7 +94,7 @@ if (root) {
       button.className='layer-item'+(e.id===selectedId?' active':'');
       const name=document.createElement('span');name.textContent=`${e.locked?'🔒 ':''}${labelFor(e)}`;
       button.title=e.id;button.append(name);
-      button.addEventListener('click',()=>{selectedId=e.id;render();});host.append(button);
+      button.addEventListener('click',()=>{selectedId=e.id;render();canvas.focus({preventScroll:true});});host.append(button);
     }
     for (const id of ['duplicate-element','delete-element','lock-element']) $(id).disabled=!current();
     for (const id of ['layer-up','layer-down','layer-front','layer-back']) {
