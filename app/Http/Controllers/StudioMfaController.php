@@ -62,6 +62,7 @@ final class StudioMfaController extends Controller
         $request->session()->forget('studio_mfa_pending_secret');
         $request->session()->regenerate();
         $request->session()->put('studio_mfa_verified_user_id', $user->id);
+        $request->session()->put('studio_mfa_enrollment_fingerprint', hash('sha256', $secret));
         $request->session()->flash('studio_mfa_recovery_codes', $codes);
         return redirect()->route('studio.mfa.recovery');
     }
@@ -73,7 +74,8 @@ final class StudioMfaController extends Controller
         if (!$user->studio_mfa_enabled_at || !$user->studio_mfa_secret) {
             return redirect()->route('studio.mfa.setup');
         }
-        if ((int) $request->session()->get('studio_mfa_verified_user_id', 0) === (int) $user->id) {
+        if ((int) $request->session()->get('studio_mfa_verified_user_id', 0) === (int) $user->id &&
+            hash_equals(hash('sha256', $user->studio_mfa_secret), (string)$request->session()->get('studio_mfa_enrollment_fingerprint',''))) {
             return redirect()->route('studio.dashboard');
         }
         return response()->view('studio.auth.mfa-challenge')->header('Cache-Control','private, no-store');
@@ -114,12 +116,18 @@ final class StudioMfaController extends Controller
         }
         $request->session()->regenerate();
         $request->session()->put('studio_mfa_verified_user_id', $user->id);
+        $request->session()->put('studio_mfa_enrollment_fingerprint', hash('sha256', $user->fresh()->studio_mfa_secret));
         return redirect()->intended(route('studio.dashboard'));
     }
 
     public function recovery(Request $request)
     {
-        abort_unless((int) $request->session()->get('studio_mfa_verified_user_id', 0) === (int) $request->user()->id, 403);
+        abort_unless(
+            (int) $request->session()->get('studio_mfa_verified_user_id', 0) === (int) $request->user()->id &&
+            $request->user()->studio_mfa_secret &&
+            hash_equals(hash('sha256', $request->user()->studio_mfa_secret), (string)$request->session()->get('studio_mfa_enrollment_fingerprint','')),
+            403
+        );
         $codes = $request->session()->get('studio_mfa_recovery_codes');
         abort_unless(is_array($codes) && count($codes) === 8, 404);
         return response()->view('studio.auth.mfa-recovery', ['codes' => $codes])

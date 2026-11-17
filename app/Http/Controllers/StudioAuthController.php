@@ -17,7 +17,7 @@ final class StudioAuthController extends Controller
                 Auth::logout(); $request->session()->invalidate();
                 return back()->withErrors(['email'=>'Your account is not authorized to access this studio.']);
             }
-            $request->session()->forget(['studio_mfa_verified_user_id','studio_mfa_pending_secret','studio_mfa_recovery_codes']);
+            $request->session()->forget(['studio_mfa_verified_user_id','studio_mfa_enrollment_fingerprint','studio_mfa_pending_secret','studio_mfa_recovery_codes']);
             return redirect()->route($request->user()->studio_mfa_enabled_at
                 ? 'studio.mfa.challenge' : 'studio.mfa.setup');
         }

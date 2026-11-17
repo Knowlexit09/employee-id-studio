@@ -65,6 +65,17 @@ final class StudioMfaTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_changing_mfa_secret_revokes_previous_verified_session(): void
+    {
+        $user=$this->staff();
+        $this->enroll($user);
+        $this->actingAs($user->fresh())->get('/studio')->assertOk();
+        $user->studio_mfa_secret = app(StudioTotp::class)->secret();
+        $user->save();
+        $this->actingAs($user->fresh())->get('/studio')->assertRedirect('/studio/mfa/challenge');
+        $this->actingAs($user->fresh())->get('/studio/mfa/challenge')->assertOk();
+    }
+
     public function test_recovery_code_is_single_use_and_wrong_code_cannot_bypass_mfa(): void
     {
         $user=$this->staff();
