@@ -59,6 +59,12 @@ final class StudioTemplateController extends StudioController
             $this->checkAssets($company,$record->id,$layout);
             $record->draft_layout=$layout;
             $record->revision++;
+            // Any edit invalidates an outstanding approval; approvals are bound to a revision.
+            $record->approval_status='none';
+            $record->approval_requested_revision=null;
+            $record->approval_requested_by=null;
+            $record->approval_requested_at=null;
+            $record->approval_rejection_reason=null;
             $record->save();
             $audit->record($request->user(),'template.draft_saved',$record,['draft_layout','revision']);
             return $record->revision;
@@ -66,27 +72,117 @@ final class StudioTemplateController extends StudioController
         return response()->json(['revision'=>$saved,'saved'=>true]);
     }
 
+    public function requestApproval(Request $request, int $template, StudioAudit $audit)
+    {
+        $company = $this->writeAccess($request);
+        $data = $request->validate(['revision'=>['required','integer','min:1']]);
+        DB::transaction(function () use ($request,$company,$template,$audit,$data): void {
+            $record = StudioTemplate::where('company_id',$company)->whereNull('archived_at')->lockForUpdate()->findOrFail($template);
+            if ($record->revision !== (int) $data['revision']) {
+                abort(409,'Template changed; reload the draft before requesting approval.');
+            }
+            if ($record->approval_status === 'pending') {
+                abort(409,'This revision is already awaiting review.');
+            }
+            $layout = TemplateLayout::normalize($record->draft_layout,(float)$record->width_mm,(float)$record->height_mm);
+            $this->checkAssets($company,$record->id,$layout);
+            $record->approval_status = 'pending';
+            $record->approval_requested_revision = $record->revision;
+            $record->approval_requested_by = $request->user()->id;
+            $record->approval_requested_at = now();
+            $record->approval_rejection_reason = null;
+            $record->save();
+            $audit->record($request->user(),'template.approval_requested',$record,['revision','approval_status']);
+        });
+        return response()->json(['requested'=>true,'revision'=>(int)$data['revision']]);
+    }
+
+    public function review(Request $request, int $template)
+    {
+        $company = $this->approvalAccess($request);
+        $record = StudioTemplate::where('company_id',$company)->whereNull('archived_at')->findOrFail($template);
+        return view('studio.templates.review', ['template'=>$record]);
+    }
+
     public function publish(Request $request, int $template, StudioAudit $audit)
     {
-        $company=$this->writeAccess($request);
-        $request->validate(['revision'=>['required','integer','min:1']]);
-        $version=DB::transaction(function () use ($request,$company,$template,$audit) {
-            $record=StudioTemplate::where('company_id',$company)->whereNull('archived_at')->lockForUpdate()->findOrFail($template);
-            if ($record->revision !== (int)$request->input('revision')) { abort(409,'Save the current draft first.'); }
-            $layout=TemplateLayout::normalize($record->draft_layout,(float)$record->width_mm,(float)$record->height_mm);
+        $company = $this->approvalAccess($request);
+        $data = $request->validate(['revision'=>['required','integer','min:1']]);
+        $version = DB::transaction(function () use ($request,$company,$template,$audit,$data) {
+            $record = StudioTemplate::where('company_id',$company)->whereNull('archived_at')->lockForUpdate()->findOrFail($template);
+            if ($record->approval_status !== 'pending' ||
+                $record->approval_requested_revision !== (int)$data['revision'] ||
+                $record->revision !== (int)$data['revision']) {
+                abort(409,'Approval must target the current requested revision.');
+            }
+            if ((int)$record->approval_requested_by === (int)$request->user()->id) {
+                abort(403,'The designer cannot approve their own draft.');
+            }
+            $layout = TemplateLayout::normalize($record->draft_layout,(float)$record->width_mm,(float)$record->height_mm);
             $this->checkAssets($company,$record->id,$layout);
-            $number=(int)$record->versions()->max('version')+1;
-            $version=StudioTemplateVersion::create([
+            $number = (int)$record->versions()->max('version') + 1;
+            $version = StudioTemplateVersion::create([
                 'company_id'=>$company,'template_id'=>$record->id,'version'=>$number,
                 'layout'=>$layout,'width_mm'=>$record->width_mm,'height_mm'=>$record->height_mm,
                 'published_at'=>now(),'published_by'=>$request->user()->id,
             ]);
-            $record->published_version_id=$version->id;
+            $record->published_version_id = $version->id;
+            $record->approval_status = 'none';
+            $record->approval_requested_revision = null;
+            $record->approval_requested_by = null;
+            $record->approval_requested_at = null;
+            $record->approval_rejection_reason = null;
             $record->save();
-            $audit->record($request->user(),'template.published',$record,['published_version_id']);
+            $audit->record($request->user(),'template.approved_published',$record,['published_version_id','approval_status']);
             return $version;
         });
-        return response()->json(['published_version'=>$version->version]);
+        if ($request->expectsJson()) {
+            return response()->json(['published_version'=>$version->version]);
+        }
+        return redirect()->route('studio.templates.history',$template)->with('status','Template approved and published.');
+    }
+
+    public function reject(Request $request, int $template, StudioAudit $audit)
+    {
+        $company = $this->approvalAccess($request);
+        $data = $request->validate([
+            'revision'=>['required','integer','min:1'],
+            'reason'=>['required','string','min:5','max:240'],
+        ]);
+        DB::transaction(function () use ($request,$company,$template,$audit,$data): void {
+            $record = StudioTemplate::where('company_id',$company)->whereNull('archived_at')->lockForUpdate()->findOrFail($template);
+            if ($record->approval_status !== 'pending' ||
+                $record->approval_requested_revision !== (int)$data['revision'] ||
+                $record->revision !== (int)$data['revision']) {
+                abort(409,'Review request is no longer current.');
+            }
+            if ((int)$record->approval_requested_by === (int)$request->user()->id) {
+                abort(403,'The designer cannot review their own draft.');
+            }
+            $record->approval_status = 'rejected';
+            $record->approval_rejection_reason = $data['reason'];
+            $record->save();
+            $audit->record($request->user(),'template.rejected',$record,['approval_status','reason_supplied']);
+        });
+        return redirect()->route('studio.templates.review',$template)->with('status','Revision rejected. The designer can revise and resubmit.');
+    }
+
+    public function history(Request $request, int $template)
+    {
+        $company = $this->viewAccess($request);
+        $record = StudioTemplate::where('company_id',$company)->findOrFail($template);
+        $versions = StudioTemplateVersion::where('company_id',$company)->where('template_id',$record->id)
+            ->orderByDesc('version')->paginate(20);
+        return view('studio.templates.history', ['template'=>$record,'versions'=>$versions]);
+    }
+
+    public function historyVersion(Request $request, int $template, int $version)
+    {
+        $company = $this->viewAccess($request);
+        $record = StudioTemplate::where('company_id',$company)->findOrFail($template);
+        $published = StudioTemplateVersion::where('company_id',$company)->where('template_id',$record->id)
+            ->where('version',$version)->firstOrFail();
+        return view('studio.templates.history-version',['template'=>$record,'version'=>$published]);
     }
 
     public function archive(Request $request,int $template,StudioAudit $audit)
