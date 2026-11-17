@@ -54,7 +54,7 @@ final class StudioBulkPrintTest extends TestCase
         ])->assertOk();
         $this->actingAs($reviewer)->postJson("/studio/templates/{$template->id}/publish", [
             'revision'=>1,
-        ])->assertOk();
+        'review_confirmed'=>'1',])->assertOk();
         $this->actingAs($hr)->post("/studio/employees/{$employee->id}/cards", [
             'template_id'=>$template->id,
         ])->assertRedirect();

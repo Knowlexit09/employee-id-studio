@@ -53,16 +53,16 @@ final class StudioApprovalTest extends TestCase
         $manager=$this->staff($company,'manager');
         $template=$this->template($company,$hr);
 
-        $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1])
+        $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1 ,'review_confirmed'=>'1',])
             ->assertForbidden();
-        $this->actingAs($manager)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1])
+        $this->actingAs($manager)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1 ,'review_confirmed'=>'1',])
             ->assertStatus(409);
 
         $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/approval-request",['revision'=>1])
             ->assertOk()->assertJsonPath('requested',true);
         $this->actingAs($manager)->get("/studio/templates/{$template->id}/review")
-            ->assertOk()->assertSee('Independent template approval');
-        $this->actingAs($manager)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1])
+            ->assertOk()->assertSee('Independent template approval')->assertSee('ID front preview')->assertSee('ID back preview');
+        $this->actingAs($manager)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1 ,'review_confirmed'=>'1',])
             ->assertOk()->assertJsonPath('published_version',1);
         $this->assertSame('none',$template->fresh()->approval_status);
         $this->assertSame(1,StudioTemplateVersion::where('template_id',$template->id)->count());
@@ -70,7 +70,7 @@ final class StudioApprovalTest extends TestCase
             ->assertOk()->assertSee('Version');
         $this->actingAs($hr)->get("/studio/templates/{$template->id}/history/1")
             ->assertOk()->assertSee('Physical size');
-        $this->actingAs($manager)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1])
+        $this->actingAs($manager)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1 ,'review_confirmed'=>'1',])
             ->assertStatus(409);
     }
 
@@ -80,7 +80,7 @@ final class StudioApprovalTest extends TestCase
         $admin=$this->staff($company,'super_admin');
         $template=$this->template($company,$admin);
         $this->actingAs($admin)->postJson("/studio/templates/{$template->id}/approval-request",['revision'=>1])->assertOk();
-        $this->actingAs($admin)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1])->assertForbidden();
+        $this->actingAs($admin)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1 ,'review_confirmed'=>'1',])->assertForbidden();
         $this->assertDatabaseCount('studio_template_versions',0);
     }
 
@@ -95,7 +95,7 @@ final class StudioApprovalTest extends TestCase
             'revision'=>1,'layout'=>TemplateLayout::initial(),
         ])->assertOk()->assertJsonPath('revision',2);
         $this->assertSame('none',$template->fresh()->approval_status);
-        $this->actingAs($manager)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1])
+        $this->actingAs($manager)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1 ,'review_confirmed'=>'1',])
             ->assertStatus(409);
     }
 
@@ -107,12 +107,12 @@ final class StudioApprovalTest extends TestCase
         $foreign=$this->staff($b,'manager');
         $template=$this->template($a,$hr);
         $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/approval-request",['revision'=>1])->assertOk();
-        $this->actingAs($foreign)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1])->assertNotFound();
+        $this->actingAs($foreign)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1 ,'review_confirmed'=>'1',])->assertNotFound();
         $this->actingAs($foreign)->get("/studio/templates/{$template->id}/history")->assertNotFound();
         $this->actingAs($reviewer)->post("/studio/templates/{$template->id}/reject",[
             'revision'=>1,'reason'=>'Wrong logo colors',
         ])->assertRedirect();
         $this->assertSame('rejected',$template->fresh()->approval_status);
-        $this->actingAs($reviewer)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1])->assertStatus(409);
+        $this->actingAs($reviewer)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1 ,'review_confirmed'=>'1',])->assertStatus(409);
     }
 }

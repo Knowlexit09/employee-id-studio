@@ -141,7 +141,7 @@ final class StudioSecurityTest extends TestCase
         ])->assertOk();
         $this->actingAs($reviewer)->postJson("/studio/templates/{$template->id}/publish", [
             'revision' => 1,
-        ])->assertOk()->assertJsonPath('published_version', 1);
+        'review_confirmed'=>'1',])->assertOk()->assertJsonPath('published_version', 1);
     }
 
     public function test_government_number_is_not_valid_id_template_field(): void
@@ -160,7 +160,7 @@ final class StudioSecurityTest extends TestCase
         $employee=$this->employee($company);$template=$this->template($company,$hr);
         $reviewer=$this->staff($company,'manager');
         $this->actingAs($hr)->postJson("/studio/templates/{$template->id}/approval-request",['revision'=>1])->assertOk();
-        $this->actingAs($reviewer)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1])->assertOk();
+        $this->actingAs($reviewer)->postJson("/studio/templates/{$template->id}/publish",['revision'=>1 ,'review_confirmed'=>'1',])->assertOk();
         $this->actingAs($hr)->post("/studio/employees/{$employee->id}/cards",['template_id'=>$template->id])->assertRedirect();
         $issue=\App\Models\StudioCardIssue::firstOrFail();
         $token=$issue->token_encrypted;

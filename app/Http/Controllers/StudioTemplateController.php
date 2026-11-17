@@ -101,13 +101,17 @@ final class StudioTemplateController extends StudioController
     {
         $company = $this->approvalAccess($request);
         $record = StudioTemplate::where('company_id',$company)->whereNull('archived_at')->findOrFail($template);
-        return view('studio.templates.review', ['template'=>$record]);
+        $assets = StudioAsset::where('company_id',$company)->where('template_id',$record->id)->get()->keyBy('id');
+        return view('studio.templates.review', ['template'=>$record,'assets'=>$assets]);
     }
 
     public function publish(Request $request, int $template, StudioAudit $audit)
     {
         $company = $this->approvalAccess($request);
-        $data = $request->validate(['revision'=>['required','integer','min:1']]);
+        $data = $request->validate([
+            'revision'=>['required','integer','min:1'],
+            'review_confirmed'=>['required','accepted'],
+        ]);
         $version = DB::transaction(function () use ($request,$company,$template,$audit,$data) {
             $record = StudioTemplate::where('company_id',$company)->whereNull('archived_at')->lockForUpdate()->findOrFail($template);
             if ($record->approval_status !== 'pending' ||
