@@ -31,7 +31,7 @@ final class StudioTemplateController extends StudioController
         ]);
         $template=DB::transaction(function () use ($request,$company,$data,$audit) {
             $template=StudioTemplate::create([
-                ...$data,'company_id'=>$company,'draft_layout'=>TemplateLayout::initial(),
+                ...$data,'company_id'=>$company,'draft_layout'=>TemplateLayout::initial((float)$data['width_mm'], (float)$data['height_mm']),
                 'created_by'=>$request->user()->id,'revision'=>1,
             ]);
             $audit->record($request->user(),'template.created',$template,['name','width_mm','height_mm']);
