@@ -9,6 +9,7 @@
 .id-pair-label{flex-basis:100%;font-size:12px;color:#475569}
 .card{position:relative;background:white;flex-shrink:0;overflow:hidden;border:1px solid #cbd5e1;background-repeat:no-repeat;background-size:100% 100%;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 .id-item{position:absolute;overflow:hidden;display:flex;align-items:center;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.12}
+.card-invalid-overlay{position:absolute;inset:0;z-index:1001;display:flex;align-items:center;justify-content:center;color:#991b1b;background:#ffffffad;font-weight:900;font-size:15pt;letter-spacing:.15em;text-shadow:1px 1px white;pointer-events:none}
 .id-item img{width:100%;height:100%;object-fit:cover}.id-item.logo img{object-fit:contain}.id-item svg{height:100%;width:100%;display:block}
 @page{size:A4;margin:6mm}
 @media print{body{background:white}.toolbar,.id-pair-label{display:none}.print-sheet{padding:0;gap:4mm}.id-pair{padding:0;border:0;gap:4mm}.card{border:0;break-inside:avoid}}
